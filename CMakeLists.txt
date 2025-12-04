@@ -154,7 +154,9 @@ if(NOT ENABLE_LIB_ONLY)
 endif()
 
 enable_testing()
-add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
+if(NOT TARGET check)
+  add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
+endif()
 
 # OpenSSL (required for libngtcp2_crypto_quictls,
 # libngtcp2_crypto_picotls and examples)

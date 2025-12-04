@@ -37,3 +37,5 @@ test-driver
 
 # idea settings
 .idea
+
+/.build_examples/
