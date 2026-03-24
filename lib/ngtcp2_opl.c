@@ -24,23 +24,5 @@
  */
 #include "ngtcp2_opl.h"
 
-void ngtcp2_opl_init(ngtcp2_opl *opl) { opl->head = NULL; }
-
-void ngtcp2_opl_push(ngtcp2_opl *opl, ngtcp2_opl_entry *ent) {
-  ent->next = opl->head;
-  opl->head = ent;
-}
-
-ngtcp2_opl_entry *ngtcp2_opl_pop(ngtcp2_opl *opl) {
-  ngtcp2_opl_entry *ent = opl->head;
-
-  if (!ent) {
-    return NULL;
-  }
-
-  opl->head = ent->next;
-
-  return ent;
-}
-
-void ngtcp2_opl_clear(ngtcp2_opl *opl) { opl->head = NULL; }
+/* ngtcp2_opl_init, ngtcp2_opl_push, ngtcp2_opl_pop, ngtcp2_opl_clear
+   are defined as static inline in ngtcp2_opl.h. */

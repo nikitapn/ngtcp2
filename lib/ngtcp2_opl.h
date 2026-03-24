@@ -47,19 +47,32 @@ typedef struct ngtcp2_opl {
 /*
  * ngtcp2_opl_init initializes |opl|.
  */
-void ngtcp2_opl_init(ngtcp2_opl *opl);
+static inline void ngtcp2_opl_init(ngtcp2_opl *opl) { opl->head = NULL; }
 
 /*
  * ngtcp2_opl_push inserts |ent| to |opl| head.
  */
-void ngtcp2_opl_push(ngtcp2_opl *opl, ngtcp2_opl_entry *ent);
+static inline void ngtcp2_opl_push(ngtcp2_opl *opl, ngtcp2_opl_entry *ent) {
+  ent->next = opl->head;
+  opl->head = ent;
+}
 
 /*
  * ngtcp2_opl_pop removes the first ngtcp2_opl_entry from |opl| and
  * returns it.  If |opl| does not have any entry, it returns NULL.
  */
-ngtcp2_opl_entry *ngtcp2_opl_pop(ngtcp2_opl *opl);
+static inline ngtcp2_opl_entry *ngtcp2_opl_pop(ngtcp2_opl *opl) {
+  ngtcp2_opl_entry *ent = opl->head;
 
-void ngtcp2_opl_clear(ngtcp2_opl *opl);
+  if (!ent) {
+    return NULL;
+  }
+
+  opl->head = ent->next;
+
+  return ent;
+}
+
+static inline void ngtcp2_opl_clear(ngtcp2_opl *opl) { opl->head = NULL; }
 
 #endif /* !defined(NGTCP2_OPL_H) */

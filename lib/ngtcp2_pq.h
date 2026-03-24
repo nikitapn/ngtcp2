@@ -102,7 +102,9 @@ void ngtcp2_pq_pop(ngtcp2_pq *pq);
 /*
  * ngtcp2_pq_empty returns nonzero if |pq| is empty.
  */
-int ngtcp2_pq_empty(const ngtcp2_pq *pq);
+static inline int ngtcp2_pq_empty(const ngtcp2_pq *pq) {
+  return pq->length == 0;
+}
 
 /*
  * ngtcp2_pq_size returns the number of items |pq| contains.

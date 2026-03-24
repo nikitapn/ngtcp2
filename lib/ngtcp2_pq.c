@@ -158,6 +158,4 @@ void ngtcp2_pq_remove(ngtcp2_pq *pq, ngtcp2_pq_entry *item) {
   }
 }
 
-int ngtcp2_pq_empty(const ngtcp2_pq *pq) { return pq->length == 0; }
-
 size_t ngtcp2_pq_size(const ngtcp2_pq *pq) { return pq->length; }

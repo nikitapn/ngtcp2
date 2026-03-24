@@ -270,7 +270,7 @@ ngtcp2_ksl_it ngtcp2_ksl_end(const ngtcp2_ksl *ksl);
 /*
  * ngtcp2_ksl_len returns the number of elements stored in |ksl|.
  */
-size_t ngtcp2_ksl_len(const ngtcp2_ksl *ksl);
+static inline size_t ngtcp2_ksl_len(const ngtcp2_ksl *ksl) { return ksl->n; }
 
 /*
  * ngtcp2_ksl_clear removes all elements stored in |ksl|.

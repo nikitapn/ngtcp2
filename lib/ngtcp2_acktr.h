@@ -196,7 +196,9 @@ ngtcp2_ksl_it ngtcp2_acktr_get(const ngtcp2_acktr *acktr);
  * ngtcp2_acktr_empty returns nonzero if it has no packet to
  * acknowledge.
  */
-int ngtcp2_acktr_empty(const ngtcp2_acktr *acktr);
+static inline int ngtcp2_acktr_empty(const ngtcp2_acktr *acktr) {
+  return acktr->ents.n == 0;
+}
 
 /*
  * ngtcp2_acktr_add_ack records outgoing ACK frame whose largest

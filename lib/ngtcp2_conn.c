@@ -1848,6 +1848,7 @@ static int conn_on_pkt_sent(ngtcp2_conn *conn, ngtcp2_pktns *pktns,
   ngtcp2_rtb *rtb = &pktns->rtb;
   ngtcp2_cc_pkt cc_pkt;
   int rv;
+  int was_pto_eliciting_in_flight;
 
   if ((ent->flags & NGTCP2_RTB_ENTRY_FLAG_ACK_ELICITING) &&
       conn->cc.on_pkt_sent) {
@@ -1860,6 +1861,8 @@ static int conn_on_pkt_sent(ngtcp2_conn *conn, ngtcp2_pktns *pktns,
 
   /* This function implements OnPacketSent, but it handles only
      non-ACK-only packet. */
+  was_pto_eliciting_in_flight = (rtb->num_pto_eliciting > 0);
+
   rv = ngtcp2_rtb_add(rtb, ent, &conn->cstat);
   if (rv != 0) {
     return rv;
@@ -1869,7 +1872,15 @@ static int conn_on_pkt_sent(ngtcp2_conn *conn, ngtcp2_pktns *pktns,
     conn->cstat.last_tx_pkt_ts[pktns->id] = ent->ts;
   }
 
-  ngtcp2_conn_set_loss_detection_timer(conn, ent->ts);
+  /* Skip recomputing the loss-detection timer when there were already
+     PTO-eliciting packets in flight and we are not in PTO probe mode.
+     The timer is already armed at the oldest in-flight packet's deadline,
+     which is earlier (more conservative) than the new packet's deadline.
+     It will be freshly recomputed by ngtcp2_rtb_recv_ack when ACKs arrive. */
+  if (!was_pto_eliciting_in_flight || conn->cstat.pto_count != 0 ||
+      conn->cstat.loss_detection_timer == UINT64_MAX) {
+    ngtcp2_conn_set_loss_detection_timer(conn, ent->ts);
+  }
 
   return 0;
 }
@@ -3506,6 +3517,7 @@ static ngtcp2_ssize conn_write_pkt(ngtcp2_conn *conn, ngtcp2_pkt_info *pi,
   const ngtcp2_cid *scid = NULL;
   int keep_alive_expired = 0;
   uint32_t version = 0;
+  int direct_stream_path = 0;
 
   /* Return 0 if destlen is less than minimum packet length which can
      trigger Stateless Reset */
@@ -3534,6 +3546,19 @@ static ngtcp2_ssize conn_write_pkt(ngtcp2_conn *conn, ngtcp2_pkt_info *pi,
     }
   }
 
+  if (type == NGTCP2_PKT_1RTT && !ppe_pending && send_stream &&
+      !stream_blocked && !send_datagram && pktns->tx.frq == NULL &&
+      ngtcp2_strm_streamfrq_empty(&pktns->crypto.strm) &&
+      ngtcp2_pq_empty(&conn->tx.strmq) && ngtcp2_acktr_empty(&pktns->acktr) &&
+      ngtcp2_ringbuf_len(&conn->rx.path_challenge.rb) == 0 &&
+      !conn_should_send_max_data(conn) &&
+      conn_required_num_new_connection_id(conn) == 0 &&
+      conn->remote.bidi.unsent_max_streams == conn->remote.bidi.max_streams &&
+      conn->remote.uni.unsent_max_streams == conn->remote.uni.max_streams &&
+      !pktns->rtb.probe_pkt_left) {
+    direct_stream_path = 1;
+  }
+
   if (!ppe_pending) {
     switch (type) {
     case NGTCP2_PKT_1RTT:
@@ -3554,7 +3579,7 @@ static ngtcp2_ssize conn_write_pkt(ngtcp2_conn *conn, ngtcp2_pkt_info *pi,
          can use remote transport parameters sending stream data in
          0.5 RTT, it is also allowed to use remote transport
          parameters here.  */
-      if (conn->oscid.datalen &&
+      if (!direct_stream_path && conn->oscid.datalen &&
           (conn->server || conn_is_tls_handshake_completed(conn))) {
         rv = conn_enqueue_new_connection_id(conn);
         if (rv != 0) {
@@ -3623,9 +3648,11 @@ static ngtcp2_ssize conn_write_pkt(ngtcp2_conn *conn, ngtcp2_pkt_info *pi,
         nfrc->fr.max_data.max_data;
     }
 
-    rv = conn_handle_skip_pkt(conn, pktns, ts);
-    if (rv != 0) {
-      return rv;
+    if (pktns->tx.last_pkt_num + 1 == pktns->tx.skip_pkt.next_pkt_num) {
+      rv = conn_handle_skip_pkt(conn, pktns, ts);
+      if (rv != 0) {
+        return rv;
+      }
     }
 
     ngtcp2_pkt_hd_init(hd, hd_flags, type, &conn->dcid.current.cid, scid,
@@ -3642,6 +3669,12 @@ static ngtcp2_ssize conn_write_pkt(ngtcp2_conn *conn, ngtcp2_pkt_info *pi,
 
     if (!ngtcp2_ppe_ensure_hp_sample(ppe)) {
       return 0;
+    }
+
+    if (direct_stream_path) {
+      left = ngtcp2_ppe_left(ppe);
+      pfrc = &pktns->tx.frq;
+      goto write_stream_data;
     }
 
     if (ngtcp2_ringbuf_len(&conn->rx.path_challenge.rb)) {
@@ -4177,6 +4210,7 @@ static ngtcp2_ssize conn_write_pkt(ngtcp2_conn *conn, ngtcp2_pkt_info *pi,
 
   left = ngtcp2_ppe_left(ppe);
 
+write_stream_data:
   if (*pfrc == NULL && send_stream && ngtcp2_pq_empty(&conn->tx.strmq) &&
       (wdatalen = ngtcp2_pkt_stream_max_datalen(
          vmsg->stream.strm->stream_id, vmsg->stream.strm->tx.offset, ndatalen,

@@ -722,8 +722,6 @@ void ngtcp2_ksl_update_key(ngtcp2_ksl *ksl, const ngtcp2_ksl_key *old_key,
   }
 }
 
-size_t ngtcp2_ksl_len(const ngtcp2_ksl *ksl) { return ksl->n; }
-
 void ngtcp2_ksl_clear(ngtcp2_ksl *ksl) {
   if (!ksl->root) {
     return;

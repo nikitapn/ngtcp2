@@ -605,10 +605,6 @@ ngtcp2_frame_chain *ngtcp2_strm_streamfrq_top(const ngtcp2_strm *strm) {
   return ngtcp2_ksl_it_get(&it);
 }
 
-int ngtcp2_strm_streamfrq_empty(const ngtcp2_strm *strm) {
-  return strm->tx.streamfrq == NULL || ngtcp2_ksl_len(strm->tx.streamfrq) == 0;
-}
-
 void ngtcp2_strm_streamfrq_clear(ngtcp2_strm *strm) {
   ngtcp2_frame_chain *frc;
   ngtcp2_ksl_it it;

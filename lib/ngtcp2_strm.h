@@ -280,7 +280,9 @@ ngtcp2_frame_chain *ngtcp2_strm_streamfrq_top(const ngtcp2_strm *strm);
 /*
  * ngtcp2_strm_streamfrq_empty returns nonzero if streamfrq is empty.
  */
-int ngtcp2_strm_streamfrq_empty(const ngtcp2_strm *strm);
+static inline int ngtcp2_strm_streamfrq_empty(const ngtcp2_strm *strm) {
+  return strm->tx.streamfrq == NULL || strm->tx.streamfrq->n == 0;
+}
 
 /*
  * ngtcp2_strm_streamfrq_clear removes all frames from streamfrq.
